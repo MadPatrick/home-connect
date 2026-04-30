@@ -144,3 +144,5 @@ class DishwasherAppliance(BaseAppliance):
 
     def poll(self, domoticz_devices, connected: bool):
         super().poll(domoticz_devices, connected)
+        if connected:
+            self._poll_active_program(domoticz_devices)

@@ -304,6 +304,11 @@ class HomeConnectAPI:
             return {}
 
         if not response.ok:
+            # 404 on /programs/active is expected when no program is running — don't count as error
+            if response.status_code == 404 and path.endswith("/programs/active"):
+                if _effective_log_level(self.debug_mode) >= 2:
+                    self.log(f"HomeConnect: {method} {path} -> 404 (no active program).")
+                return {}
             self.log(
                 f"HomeConnect: HTTP error {response.status_code} for {method} {path}."
             )

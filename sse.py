@@ -63,7 +63,7 @@ class SSEThread(threading.Thread):
                 "Accept": "text/event-stream",
             },
             stream=True,
-            timeout=(10, 45),  # (connect_timeout, read_timeout)
+            timeout=(10, 120),  # connect=10s, read=120s; server keep-alives arrive every ~55-60s
         )
         self._response = response
 

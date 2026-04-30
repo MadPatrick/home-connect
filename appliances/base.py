@@ -62,6 +62,7 @@ class BaseAppliance:
         self.connected = False
         self._watts = 0.0
         self._total_wh = 0.0
+        self._operation_state = ""
 
     def u(self, offset):
         """Return the Domoticz unit number for a given offset."""
@@ -115,6 +116,7 @@ class BaseAppliance:
         if key == "BSH.Common.Status.OperationState" and has_operation:
             # e.g. "BSH.Common.EnumType.OperationState.Ready" -> "Ready"
             state = value.rsplit(".", 1)[-1]
+            self._operation_state = state
             level = dev.OPERATION_LEVELS.get(state, 0)
             dev.update_selector(domoticz_devices, self.u(OFFSET_OPERATION), level)
 
@@ -142,6 +144,28 @@ class BaseAppliance:
             self._total_wh = _safe_float(value)
             dev.ensure_kwh(domoticz_devices, self.u(OFFSET_ENERGY), f"{self.name} - Energy")
             dev.update_kwh(domoticz_devices, self.u(OFFSET_ENERGY), self._watts, self._total_wh)
+
+    _PROGRAM_ACTIVE_STATES = frozenset({"Running", "DelayedStart", "Paused"})
+
+    def _poll_active_program(self, domoticz_devices):
+        """Poll /programs/active when a program is running and update progress/options.
+        Only called when _operation_state indicates an active program to avoid
+        unnecessary 404 API calls for idle appliances.
+        """
+        if self._operation_state not in self._PROGRAM_ACTIVE_STATES:
+            return
+        resp = self.api.get(f"/api/homeappliances/{self.ha_id}/programs/active")
+        program = resp.get("data", {})
+        if not program:
+            return
+        prog_key = program.get("key", "")
+        if prog_key:
+            self._handle_status_key(domoticz_devices, "BSH.Common.Root.ActiveProgram", prog_key)
+        for option in program.get("options", []):
+            opt_key = option.get("key", "")
+            opt_val = option.get("value", "")
+            if opt_key:
+                self._handle_status_key(domoticz_devices, opt_key, opt_val)
 
     def handle_command(self, domoticz_devices, unit, command, level):
         """Handle a Domoticz device command (e.g. switch on/off)."""
