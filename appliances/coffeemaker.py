@@ -2,8 +2,6 @@
 coffeemaker.py - CoffeeMaker appliance handler for Home Connect.
 """
 
-import time
-
 import devices as dev
 from appliances.base import BaseAppliance, OFFSET_ALERT
 
@@ -15,7 +13,7 @@ OFFSET_COFFEE_COUNT = 9
 OFFSET_HOTWATER_COUNT = 10
 
 _BEAN_NAMES  = ["VeryMild", "Mild", "Normal", "Strong", "VeryStrong", "ExtraStrong"]
-_TEMP_NAMES  = ["88°C", "90°C", "92°C", "94°C", "95°C", "97°C"]
+_TEMP_NAMES  = ["88Â°C", "90Â°C", "92Â°C", "94Â°C", "95Â°C", "97Â°C"]
 _TEMP_SUFFIXES = ["88C", "90C", "92C", "94C", "95C", "97C"]
 
 _BEAN_LEVELS = {n: i * 10 for i, n in enumerate(_BEAN_NAMES)}
@@ -53,12 +51,6 @@ def _event_is_present(value):
     return short in ("present", "true", "1", "on")
 
 
-def _event_is_false(value):
-    if isinstance(value, bool):
-        return not value
-    short = str(value).rsplit(".", 1)[-1].strip().lower()
-    return short in ("false", "off", "0", "inactive")
-
 
 class CoffeeMakerAppliance(BaseAppliance):
     """Handles CoffeeMaker Home Connect appliances."""
@@ -68,9 +60,6 @@ class CoffeeMakerAppliance(BaseAppliance):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._programs = []  # list of full program key strings
-        self._clear_after_local_control = False
-        self._last_action_required_alert_at = 0.0
-        self._refreshing_after_local_control = False
 
     def _programs_short(self):
         return [k.rsplit(".", 1)[-1] for k in self._programs]
@@ -85,16 +74,9 @@ class CoffeeMakerAppliance(BaseAppliance):
             self.log(f"HomeConnect: Could not fetch programs for {self.name}: {exc}")
             self._programs = []
 
-    def _clear_action_required_alerts(self, domoticz_devices, allow_active=False):
+    def _clear_action_required_alerts(self, domoticz_devices):
         active_keys = _ACTION_REQUIRED_ALERT_KEYS.intersection(self._active_alerts)
         if active_keys:
-            if not allow_active:
-                return
-            if time.time() - self._last_action_required_alert_at < 10:
-                return
-            for alert_key in sorted(active_keys):
-                message, level = _COFFEE_ALERT_EVENTS[alert_key]
-                self._set_alert_state(domoticz_devices, alert_key, False, message, level)
             return
 
         alert_device = domoticz_devices.get(self.u(OFFSET_ALERT))
@@ -113,18 +95,6 @@ class CoffeeMakerAppliance(BaseAppliance):
         ):
             self._alert(domoticz_devices, "No active alerts.", level=1)
 
-    def _refresh_status_after_local_control(self, domoticz_devices):
-        if self._refreshing_after_local_control:
-            return
-
-        self._refreshing_after_local_control = True
-        self._clear_after_local_control = True
-        try:
-            self.log(f"HomeConnect: {self.name} - local control ended; refreshing status.")
-            self.poll_status(domoticz_devices)
-        finally:
-            self._clear_after_local_control = False
-            self._refreshing_after_local_control = False
 
     def create_devices(self, domoticz_devices):
         super().create_devices(domoticz_devices)
@@ -167,23 +137,13 @@ class CoffeeMakerAppliance(BaseAppliance):
         elif key in _COFFEE_ALERT_EVENTS:
             message, level = _COFFEE_ALERT_EVENTS[key]
             active = _event_is_present(value)
-            if active and key in _ACTION_REQUIRED_ALERT_KEYS:
-                self._last_action_required_alert_at = time.time()
             self._set_alert_state(domoticz_devices, key, active, message, level)
 
         elif key == "BSH.Common.Status.OperationState":
             super()._handle_status_key(domoticz_devices, key, value)
             state = str(value).rsplit(".", 1)[-1]
             if state in _ACTION_REQUIRED_CLEAR_STATES:
-                self._clear_action_required_alerts(
-                    domoticz_devices,
-                    allow_active=self._clear_after_local_control,
-                )
-
-        elif key == "BSH.Common.Status.LocalControlActive":
-            super()._handle_status_key(domoticz_devices, key, value)
-            if _event_is_false(value):
-                self._refresh_status_after_local_control(domoticz_devices)
+                self._clear_action_required_alerts(domoticz_devices)
 
         else:
             super()._handle_status_key(domoticz_devices, key, value)
