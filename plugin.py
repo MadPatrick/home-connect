@@ -430,6 +430,7 @@ class BasePlugin:
     # ------------------------------------------------------------------
 
     def onStart(self):
+        start = time.time()
         # Read and apply debug level
         self.debug_mode = int(Parameters["Mode6"])
         if _effective_log_level(self.debug_mode) >= 1:
@@ -492,11 +493,17 @@ class BasePlugin:
             Domoticz.Log(
                 f"HomeConnect: Please authorize at: {self.oauth.get_auth_url()}"
             )
+        Domoticz.Log(f"HomeConnect: onStart() returned after {time.time() - start:.2f}s.")
 
     def onStop(self):
+        start = time.time()
         if self.sse_thread is not None:
+            # stop() closes the active connection, which unblocks the thread's
+            # blocking read almost immediately. It's a daemon thread, so there's
+            # no need to wait around for it to actually finish before returning -
+            # it will be torn down with the process if this is a full restart,
+            # and _start_sse() replaces the reference on the next onStart anyway.
             self.sse_thread.stop()
-            self.sse_thread.join(timeout=5)
             self.sse_thread = None
         if self.callback_server is not None:
             try:
@@ -504,7 +511,7 @@ class BasePlugin:
             except Exception:
                 pass
             self.callback_server = None
-        Domoticz.Log("HomeConnect: Plugin stopped.")
+        Domoticz.Log(f"HomeConnect: Plugin stopped ({time.time() - start:.2f}s).")
 
     def onHeartbeat(self):
         if self.oauth is None:
