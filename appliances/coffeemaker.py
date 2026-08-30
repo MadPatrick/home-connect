@@ -3,7 +3,7 @@ coffeemaker.py - CoffeeMaker appliance handler for Home Connect.
 """
 
 import devices as dev
-from appliances.base import BaseAppliance, OFFSET_ALERT
+from appliances.base import BaseAppliance
 
 
 OFFSET_PROGRAM      = 6
@@ -38,9 +38,6 @@ _ACTION_REQUIRED_ALERT_KEYS = frozenset({
     "ConsumerProducts.CoffeeMaker.Event.WaterTankEmpty",
     "ConsumerProducts.CoffeeMaker.Event.DripTrayFull",
 })
-_ACTION_REQUIRED_ALERT_MESSAGES = {
-    _COFFEE_ALERT_EVENTS[key][0] for key in _ACTION_REQUIRED_ALERT_KEYS
-}
 _ACTION_REQUIRED_CLEAR_STATES = frozenset({"Ready", "Inactive", "Running"})
 
 
@@ -75,26 +72,16 @@ class CoffeeMakerAppliance(BaseAppliance):
             self._programs = []
 
     def _clear_action_required_alerts(self, domoticz_devices):
-        active_keys = _ACTION_REQUIRED_ALERT_KEYS.intersection(self._active_alerts)
-        if active_keys:
-            return
-
-        alert_device = domoticz_devices.get(self.u(OFFSET_ALERT))
-        if alert_device is None:
-            return
-
-        current_message = str(getattr(alert_device, "sValue", "") or "").strip()
-        try:
-            current_level = int(getattr(alert_device, "nValue", 0) or 0)
-        except (TypeError, ValueError):
-            current_level = 0
-
-        if (
-            current_message in _ACTION_REQUIRED_ALERT_MESSAGES
-            or (current_level != 1 and current_message.lower() == "no active alerts.")
-        ):
-            self._alert(domoticz_devices, "No active alerts.", level=1)
-
+        """Home Connect doesn't reliably send an explicit "resolved" event for
+        action-required conditions (empty tank/bean container, full drip tray) -
+        the appliance just starts running again once they're fixed. So clear our
+        tracked state for them here whenever OperationState returns to
+        Ready/Inactive/Running, instead of waiting for an event that may never come.
+        """
+        for key in _ACTION_REQUIRED_ALERT_KEYS:
+            if key in self._active_alerts:
+                message, level = _COFFEE_ALERT_EVENTS[key]
+                self._set_alert_state(domoticz_devices, key, False, message, level)
 
     def create_devices(self, domoticz_devices):
         super().create_devices(domoticz_devices)
