@@ -38,7 +38,7 @@ _ACTION_REQUIRED_ALERT_KEYS = frozenset({
     "ConsumerProducts.CoffeeMaker.Event.WaterTankEmpty",
     "ConsumerProducts.CoffeeMaker.Event.DripTrayFull",
 })
-_ACTION_REQUIRED_CLEAR_STATES = frozenset({"Ready", "Inactive", "Running"})
+_ACTION_REQUIRED_CLEAR_STATES = frozenset({"Running"})
 
 
 def _event_is_present(value):
@@ -75,8 +75,14 @@ class CoffeeMakerAppliance(BaseAppliance):
         """Home Connect doesn't reliably send an explicit "resolved" event for
         action-required conditions (empty tank/bean container, full drip tray) -
         the appliance just starts running again once they're fixed. So clear our
-        tracked state for them here whenever OperationState returns to
-        Ready/Inactive/Running, instead of waiting for an event that may never come.
+        tracked state for them here once OperationState reaches Running again,
+        instead of waiting for an event that may never come.
+
+        Only "Running" counts as proof the condition was actually resolved: a
+        failed brew attempt can report the alert event and OperationState
+        "Ready" in the very same status batch (the appliance refuses to start
+        and falls back to Ready), which would otherwise clear the alert
+        immediately even though the physical appliance still shows it.
         """
         for key in _ACTION_REQUIRED_ALERT_KEYS:
             if key in self._active_alerts:
