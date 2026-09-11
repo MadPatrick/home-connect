@@ -135,7 +135,17 @@ class SSEThread(threading.Thread):
             response.close()
 
     def stop(self):
-        """Signal the thread to stop and close the active connection immediately."""
+        """Signal the thread to stop and close the active connection.
+
+        response.close() can block for a long time if this thread's read loop
+        is concurrently blocked in a socket read (they share an internal
+        buffered-reader lock) - it won't return until that read unblocks,
+        which may not happen until the next keep-alive (~55-60s) or the 120s
+        read timeout. Do the close on a throwaway thread so a caller running
+        on Domoticz's main plugin thread (onStop()) never blocks on it and
+        risks tripping Domoticz's own shutdown watchdog.
+        """
         self._stop_event.set()
-        if self._response is not None:
-            self._response.close()
+        response = self._response
+        if response is not None:
+            threading.Thread(target=response.close, daemon=True).start()
