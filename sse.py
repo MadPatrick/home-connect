@@ -135,17 +135,29 @@ class SSEThread(threading.Thread):
             response.close()
 
     def stop(self):
-        """Signal the thread to stop and close the active connection.
+        """Signal the thread to stop and interrupt its blocking read.
 
         response.close() can block for a long time if this thread's read loop
         is concurrently blocked in a socket read (they share an internal
         buffered-reader lock) - it won't return until that read unblocks,
         which may not happen until the next keep-alive (~55-60s) or the 120s
-        read timeout. Do the close on a throwaway thread so a caller running
-        on Domoticz's main plugin thread (onStop()) never blocks on it and
-        risks tripping Domoticz's own shutdown watchdog.
+        read timeout. Closing it on a throwaway thread stops that from
+        blocking the caller, but the read loop - and this thread - would
+        still be left running until the same unblock happens, which Domoticz
+        notices and warns about as a lingering plugin thread.
+
+        Prefer urllib3's HTTPResponse.shutdown(): it shuts down only the read
+        side of the underlying socket, a plain non-blocking syscall that
+        doesn't touch the buffered-reader lock, and makes the thread's
+        in-progress read return immediately so the read loop - and thread -
+        exit right away. Fall back to closing on a throwaway thread if it's
+        unavailable (older urllib3) or fails for any reason.
         """
         self._stop_event.set()
         response = self._response
-        if response is not None:
+        if response is None:
+            return
+        try:
+            response.raw.shutdown()
+        except Exception:
             threading.Thread(target=response.close, daemon=True).start()
