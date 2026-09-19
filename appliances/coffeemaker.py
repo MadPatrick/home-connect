@@ -11,6 +11,7 @@ OFFSET_BEAN_AMOUNT  = 7
 OFFSET_COFFEE_TEMP  = 8
 OFFSET_COFFEE_COUNT = 9
 OFFSET_HOTWATER_COUNT = 10
+OFFSET_PROGRESS     = 11
 
 _BEAN_NAMES  = ["VeryMild", "Mild", "Normal", "Strong", "VeryStrong", "ExtraStrong"]
 _TEMP_NAMES  = ["88Â°C", "90Â°C", "92Â°C", "94Â°C", "95Â°C", "97Â°C"]
@@ -102,6 +103,7 @@ class CoffeeMakerAppliance(BaseAppliance):
                             dev.make_selector_options(_TEMP_NAMES))
         dev.ensure_custom(domoticz_devices, self.u(OFFSET_COFFEE_COUNT), f"{self.name} - Coffee Counter", "cups")
         dev.ensure_custom(domoticz_devices, self.u(OFFSET_HOTWATER_COUNT), f"{self.name} - Hot Water Counter", "cups")
+        dev.ensure_percentage(domoticz_devices, self.u(OFFSET_PROGRESS), f"{self.name} - Program Progress")
 
     def _handle_status_key(self, domoticz_devices, key, value):
         if key in ("BSH.Common.Root.ActiveProgram", "BSH.Common.Root.SelectedProgram"):
@@ -126,6 +128,12 @@ class CoffeeMakerAppliance(BaseAppliance):
 
         elif key == "ConsumerProducts.CoffeeMaker.Status.BeverageCounterHotWater":
             dev.update_custom(domoticz_devices, self.u(OFFSET_HOTWATER_COUNT), value)
+
+        elif key == "BSH.Common.Option.ProgramProgress":
+            try:
+                dev.update_percentage(domoticz_devices, self.u(OFFSET_PROGRESS), float(value))
+            except (TypeError, ValueError):
+                pass
 
         elif key in _COFFEE_ALERT_EVENTS:
             message, level = _COFFEE_ALERT_EVENTS[key]

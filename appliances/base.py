@@ -167,6 +167,12 @@ class BaseAppliance:
             dev.ensure_kwh(domoticz_devices, self.u(OFFSET_ENERGY), f"{self.name} - Energy")
             dev.update_kwh(domoticz_devices, self.u(OFFSET_ENERGY), self._watts, self._total_wh)
 
+        elif _effective_log_level(self.debug_mode) >= 1:
+            # Not recognised by this appliance type or the base handler - log it so an
+            # unmapped key (e.g. a maintenance event we don't yet translate to an alert)
+            # can be identified from the log instead of silently disappearing.
+            self.log(f"HomeConnect: {self.name} - Unhandled key '{key}' = '{value}'.")
+
     _PROGRAM_ACTIVE_STATES = frozenset({"Running", "DelayedStart", "Paused"})
 
     def _poll_active_program(self, domoticz_devices):

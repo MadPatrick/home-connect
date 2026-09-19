@@ -17,7 +17,7 @@ Monitor and control your Bosch/Siemens/Neff/Balay appliances from Domoticz via t
 | Oven | Online, Power, Operation, Door, Remote Control, Child Lock, Program, Progress, Finish Time, Cavity Temperature, Setpoint Temperature, Alarm Clock |
 | Microwave | Online, Power, Operation, Door, Remote Control, Program |
 | WarmingDrawer | Online, Power, Operation, Warming Level |
-| CoffeeMaker | Online, Power, Operation, Beverage Program, Bean Amount, Temperature, Coffee Counter, Hot Water Counter |
+| CoffeeMaker | Online, Power, Operation, Beverage Program, Bean Amount, Temperature, Coffee Counter, Hot Water Counter, Progress |
 | Hood | Online, Power, Venting Level, Intensive Level, Functional Light |
 | CleaningRobot | Online, Power, Operation, Cleaning Program, Cleaning Mode, Dust Box, Lifted |
 | Refrigerator | Online, Power, Fridge Temperature, Fridge Setpoint, Door, Super Cool, Eco Mode, Vacation Mode |
